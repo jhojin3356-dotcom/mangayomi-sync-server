@@ -50,3 +50,7 @@ docker-compose.override.yml
 next-env.d.ts
 
 
+
+# database dumps
+*.dump
+mangayomi-schema.sql

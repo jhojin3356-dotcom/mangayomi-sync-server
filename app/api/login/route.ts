@@ -101,7 +101,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   const response = NextResponse.json({ ok: true });
   response.cookies.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.SECURE_COOKIES === "true",
     sameSite: "lax",
     path: "/",
     // Session-only cookie (no maxAge) unless staying logged in, where maxAge matches the JWT's own expiry.

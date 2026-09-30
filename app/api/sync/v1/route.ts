@@ -183,6 +183,17 @@ export async function POST(request: Request): Promise<NextResponse> {
 
       await applyDeletions(client, userId, req.deleted, now);
 
+      const firstSyncRequest = req.cursors === undefined;
+      const shouldPull = (key: keyof NonNullable<typeof req.cursors>) =>
+        firstSyncRequest || req.cursors?.[key] !== null;
+
+      const emptyPage = {
+        rows: [],
+        hasMore: false,
+        nextCursor: null,
+        totalCount: undefined,
+      };
+
       const [
         categories,
         manga,
@@ -193,55 +204,76 @@ export async function POST(request: Request): Promise<NextResponse> {
         settings,
         tombstonesPage,
       ] = await Promise.all([
-        pullCategories(
-          client,
-          userId,
-          since,
-          decodeCursor(req.cursors?.categories),
-          appliedCategories,
-        ),
-        pullManga(
-          client,
-          userId,
-          since,
-          decodeCursor(req.cursors?.manga),
-          appliedManga,
-        ),
-        pullChapters(
-          client,
-          userId,
-          since,
-          decodeCursor(req.cursors?.chapters),
-          appliedChapters,
-        ),
-        pullTracks(
-          client,
-          userId,
-          since,
-          decodeCursor(req.cursors?.tracks),
-          appliedTracks,
-        ),
-        pullHistories(
-          client,
-          userId,
-          since,
-          decodeCursor(req.cursors?.histories),
-          appliedHistories,
-        ),
-        pullUpdates(
-          client,
-          userId,
-          since,
-          decodeCursor(req.cursors?.updates),
-          appliedUpdates,
-        ),
+        shouldPull("categories")
+          ? pullCategories(
+              client,
+              userId,
+              since,
+              decodeCursor(req.cursors?.categories),
+              appliedCategories,
+            )
+          : emptyPage,
+        shouldPull("manga")
+          ? pullManga(
+              client,
+              userId,
+              since,
+              decodeCursor(req.cursors?.manga),
+              appliedManga,
+            )
+          : emptyPage,
+        shouldPull("chapters")
+          ? pullChapters(
+              client,
+              userId,
+              since,
+              decodeCursor(req.cursors?.chapters),
+              appliedChapters,
+            )
+          : emptyPage,
+        shouldPull("tracks")
+          ? pullTracks(
+              client,
+              userId,
+              since,
+              decodeCursor(req.cursors?.tracks),
+              appliedTracks,
+            )
+          : emptyPage,
+        shouldPull("histories")
+          ? pullHistories(
+              client,
+              userId,
+              since,
+              decodeCursor(req.cursors?.histories),
+              appliedHistories,
+            )
+          : emptyPage,
+        shouldPull("updates")
+          ? pullUpdates(
+              client,
+              userId,
+              since,
+              decodeCursor(req.cursors?.updates),
+              appliedUpdates,
+            )
+          : emptyPage,
         pullSettings(client, userId, since),
-        pullTombstones(
-          client,
-          userId,
-          since,
-          decodeCursor(req.cursors?.tombstones),
-        ),
+        shouldPull("tombstones")
+          ? pullTombstones(
+              client,
+              userId,
+              since,
+              decodeCursor(req.cursors?.tombstones),
+            )
+          : { ...emptyPage, entities: {
+              categories: [],
+              manga: [],
+              chapters: [],
+              tracks: [],
+              histories: [],
+              updates: [],
+            } },
       ]);
 
       // Only trust `now` as the new watermark once every entity has fully caught up, or a mid-pagination client would skip rows.
@@ -253,6 +285,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         histories.hasMore ||
         updates.hasMore ||
         tombstonesPage.hasMore;
+
 
       return {
         syncedAt: hasMore ? null : Number(now),
@@ -284,7 +317,13 @@ export async function POST(request: Request): Promise<NextResponse> {
         tracks: tracks.rows,
         histories: histories.rows,
         updates: updates.rows,
-        settings,
+        settings: settings
+          ? { ...settings, data: (() => {
+              const d = settings.data as Record<string, unknown>;
+              const { libraryFilterMangasSourceIds, libraryFilterAnimeSourceIds, libraryFilterNovelSourceIds, ...rest } = d;
+              return rest;
+            })() }
+          : null,
         tombstones: tombstonesPage.entities,
         // Tells the client the manga it just sent already exists under a different clientId - rewrite to adopt it. Only present when non-empty.
         ...(mangaClientIdRemap.size > 0

@@ -118,13 +118,13 @@ export const RATE_LIMIT_BACKOFF = {
 // Sync endpoint
 export const SYNC = {
   // A full 5000-row batch needs several sequential DB round trips per row, easily exceeding Prisma's default 5s transaction timeout.
-  transactionTimeoutMs: 60_000,
+  transactionTimeoutMs: 300_000,
   // Only gates a *fresh* sync (no valid sessionToken); pagination reuses the token so it never hits this.
   freshLimit: { maxAttempts: 20, windowMs: 60 * 1000 },
   // Coarse circuit breaker independent of the token so it can't be bypassed by anyone holding a valid one.
   dailyCircuitBreaker: { maxAttempts: 50_000, windowMs: 24 * 60 * 60 * 1000 },
   // Generous but bounded, trading multiple round trips for predictable response/query cost.
-  pullPageSize: 2000,
+  pullPageSize: 500,
   maxRowsPerEntity: 5000,
 };
 

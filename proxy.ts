@@ -76,7 +76,7 @@ export function proxy(request: NextRequest): NextResponse {
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", csp);
   // Skipped in dev, HSTS breaks plain-http localhost.
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.ENABLE_HSTS === "true") {
     response.headers.set(
       "Strict-Transport-Security",
       "max-age=63072000; includeSubDomains",
@@ -89,7 +89,7 @@ export function proxy(request: NextRequest): NextResponse {
     response.cookies.set(CSRF_COOKIE_NAME, generateToken(), {
       // Must be readable by client JS to echo back as the header - protection comes from cross-origin read isolation, not secrecy.
       httpOnly: false,
-      secure: process.env.NODE_ENV === "production",
+      secure: process.env.SECURE_COOKIES === "true",
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60 * 24 * 30,
